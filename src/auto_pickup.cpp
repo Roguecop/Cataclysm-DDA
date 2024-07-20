@@ -323,7 +323,8 @@ void user_interface::show()
 
     size_t iTab = 0;
     int iLine = 0;
-    bool bLeftColumn = true;
+    int lastColumn = 2;
+    int currentColumn = 0;
     int iStartPos = 0;
     Character &player_character = get_player_character();
 
@@ -370,6 +371,7 @@ void user_interface::show()
         mvwprintz( w_header, point( 1, 3 ), c_white, "#" );
         mvwprintz( w_header, point( 8, 3 ), c_white, _( "Rules" ) );
         mvwprintz( w_header, point( 52, 3 ), c_white, _( "Inc/Exc" ) );
+        mvwprintz( w_header, point(62, 3), c_white, _("Max"));
 
         rule_list &cur_rules = tabs[iTab].new_rules;
         int locx = 17;
@@ -420,12 +422,15 @@ void user_interface::show()
                     wprintz( w, c_yellow, "   " );
                 }
 
-                wprintz( w, iLine == i && bLeftColumn ? hilite( cLineColor ) : cLineColor, "%s",
+                wprintz( w, iLine == i && currentColumn == 0 ? hilite( cLineColor ) : cLineColor, "%s",
                          cur_rules[i].sRule.empty() ? _( "<empty rule>" ) : cur_rules[i].sRule );
 
-                mvwprintz( w, point( 52, i - iStartPos ), iLine == i && !bLeftColumn ?
+                mvwprintz( w, point( 52, i - iStartPos ), iLine == i && currentColumn == 1 ?
                            hilite( cLineColor ) : cLineColor, "%s",
                            cur_rules[i].bExclude ? _( "Exclude" ) :  _( "Include" ) );
+                mvwprintz(w, point(62, i - iStartPos), iLine == i && currentColumn == 2 ?
+                    hilite(cLineColor) : cLineColor, "%s",
+                    std::to_string(cur_rules[i].maxHeld));
             }
         }
 
@@ -452,6 +457,7 @@ void user_interface::show()
     ctxt.register_action( "TEST_RULE" );
     ctxt.register_action( "HELP_KEYBINDINGS" );
     ctxt.register_action( "SWITCH_AUTO_PICKUP_OPTION" );
+    ctxt.register_action("CHANGE_MAX");
 
     const bool allow_swapping = tabs.size() == 2;
     if( allow_swapping ) {
@@ -516,7 +522,7 @@ void user_interface::show()
             }
             ui_manager::redraw();
 
-            if( bLeftColumn || action == "ADD_RULE" ) {
+            if(currentColumn == 0 || action == "ADD_RULE" ) {
                 ui_adaptor help_ui;
                 catacurses::window w_help;
                 const auto init_help_window = [&]( ui_adaptor & help_ui ) {
@@ -566,9 +572,15 @@ void user_interface::show()
                     cur_rules.pop_back();
                     iLine = old_iLine;
                 }
-            } else if( !bLeftColumn ) {
+            } else if(currentColumn == 1) {
                 bStuffChanged = true;
                 cur_rules[iLine].bExclude = !cur_rules[iLine].bExclude;
+            }
+            else if (currentColumn == 2) {
+                cur_rules[iLine].maxHeld = string_input_popup()
+                    .title(_("Max number of items to collect"))
+                    .width(30)
+                    .query_int();
             }
         } else if( action == "ENABLE_RULE" && currentPageNonEmpty ) {
             bStuffChanged = true;
@@ -576,8 +588,15 @@ void user_interface::show()
         } else if( action == "DISABLE_RULE" && currentPageNonEmpty ) {
             bStuffChanged = true;
             cur_rules[iLine].bActive = false;
-        } else if( action == "LEFT" || action == "RIGHT" ) {
-            bLeftColumn = !bLeftColumn;
+        }
+        else if (action == "CHANGE_MAX" && currentPageNonEmpty) {
+            bStuffChanged = true;
+            cur_rules[iLine].maxHeld = 100;
+            }
+        else if (action == "LEFT") {
+            currentColumn = (currentColumn == 0) ? lastColumn : currentColumn -= 1;
+        } else if (action == "RIGHT" ) {
+            currentColumn = (currentColumn == lastColumn) ? 0 : currentColumn += 1;
         } else if( action == "MOVE_RULE_UP" && currentPageNonEmpty ) {
             bStuffChanged = true;
             if( iLine < recmax - 1 ) {
