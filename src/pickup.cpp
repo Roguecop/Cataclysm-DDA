@@ -348,16 +348,21 @@ bool Pickup::do_pickup( std::vector<item_location> &targets, std::vector<int> &q
     PickupMap mapPickup;
 
     bool problem = false;
-    while( !problem && player_character.get_moves() >= 0 && !targets.empty() ) {
-        item_location target = std::move( targets.back() );
+    while (!problem && player_character.get_moves() >= 0 && !targets.empty()) {
+        item_location target = std::move(targets.back());
         int quantity = quantities.back();
         // Whether we pick the item up or not, we're done trying to do so,
         // so remove it from the list.
         targets.pop_back();
         quantities.pop_back();
 
-        if( !target ) {
-            debugmsg( "lost target item of ACT_PICKUP" );
+        if (!target) {
+            debugmsg("lost target item of ACT_PICKUP");
+            continue;
+        }
+
+        // Do not autopick when over max quantity to take
+        if (autopickup && quantity == -1) {
             continue;
         }
         problem = !pick_one_up( target, quantity, got_water, got_gas, mapPickup, autopickup,
@@ -388,6 +393,7 @@ bool Pickup::do_pickup( std::vector<item_location> &targets, std::vector<int> &q
 
     return !problem;
 }
+
 
 // Auto pickup items at given location
 void Pickup::autopickup( const tripoint &p )
@@ -426,6 +432,7 @@ void Pickup::autopickup( const tripoint &p )
         return;
     }
     drop_locations selected_items = auto_pickup::select_items( here, p );
+
     if( selected_items.empty() ) {
         return;
     }
@@ -435,7 +442,24 @@ void Pickup::autopickup( const tripoint &p )
     for( drop_location selected : selected_items ) {
         item *it = selected.first.get_item();
         target_items.push_back( selected.first );
-        quantities.push_back( it->count_by_charges() ? it->charges : 0 );
+
+        // Calculate the max number of items to get
+        int item_quantities = it->count_by_charges() ? it->charges : 0;
+        int max_to_get = get_auto_pickup().capacity_for_item(it);
+        if (max_to_get == -1) {
+            quantities.push_back(item_quantities);
+            continue;
+        }
+        int total_to_get;
+        if (max_to_get <= item_quantities) {
+            total_to_get = max_to_get;
+        }
+        else {
+            total_to_get = item_quantities;
+        }
+        total_to_get = total_to_get == 0 ? -1 : total_to_get;
+        quantities.push_back( total_to_get);
+
     }
     pickup_activity_actor actor( target_items, quantities, player.pos_bub(), true );
     player.assign_activity( actor );

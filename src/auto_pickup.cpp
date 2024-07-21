@@ -430,7 +430,7 @@ void user_interface::show()
                            cur_rules[i].bExclude ? _( "Exclude" ) :  _( "Include" ) );
                 mvwprintz(w, point(62, i - iStartPos), iLine == i && currentColumn == 2 ?
                     hilite(cLineColor) : cLineColor, "%s",
-                    std::to_string(cur_rules[i].maxHeld));
+                    std::to_string(cur_rules[i].iMaxHeld));
             }
         }
 
@@ -457,7 +457,6 @@ void user_interface::show()
     ctxt.register_action( "TEST_RULE" );
     ctxt.register_action( "HELP_KEYBINDINGS" );
     ctxt.register_action( "SWITCH_AUTO_PICKUP_OPTION" );
-    ctxt.register_action("CHANGE_MAX");
 
     const bool allow_swapping = tabs.size() == 2;
     if( allow_swapping ) {
@@ -517,7 +516,7 @@ void user_interface::show()
         } else if( action == "ADD_RULE" || ( action == "CONFIRM" && currentPageNonEmpty ) ) {
             const int old_iLine = iLine;
             if( action == "ADD_RULE" ) {
-                cur_rules.push_back( rule( "", true, false ) );
+                cur_rules.push_back( rule( "", true, false, 0) );
                 iLine = cur_rules.size() - 1;
             }
             ui_manager::redraw();
@@ -577,7 +576,8 @@ void user_interface::show()
                 cur_rules[iLine].bExclude = !cur_rules[iLine].bExclude;
             }
             else if (currentColumn == 2) {
-                cur_rules[iLine].maxHeld = string_input_popup()
+                bStuffChanged = true;
+                cur_rules[iLine].iMaxHeld = string_input_popup()
                     .title(_("Max number of items to collect"))
                     .width(30)
                     .query_int();
@@ -589,10 +589,6 @@ void user_interface::show()
             bStuffChanged = true;
             cur_rules[iLine].bActive = false;
         }
-        else if (action == "CHANGE_MAX" && currentPageNonEmpty) {
-            bStuffChanged = true;
-            cur_rules[iLine].maxHeld = 100;
-            }
         else if (action == "LEFT") {
             currentColumn = (currentColumn == 0) ? lastColumn : currentColumn -= 1;
         } else if (action == "RIGHT" ) {
@@ -775,7 +771,7 @@ bool player_settings::has_rule( const item *it )
 
 void player_settings::add_rule( const item *it, bool include )
 {
-    character_rules.push_back( rule( it->tname( 1, false ), true, !include ) );
+    character_rules.push_back( rule( it->tname( 1, false ), true, !include, 0) );
     create_rule( it );
 
     if( !get_option<bool>( "AUTO_PICKUP" ) &&
@@ -887,6 +883,59 @@ void player_settings::refresh_map_items( cache &map_items ) const
     character_rules.refresh_map_items( map_items );
 }
 
+int player_settings::capacity_for_item(const item* it)
+{
+    if (check_item(it->tname(1, false)) == rule_state::BLACKLISTED) {
+        return 0;
+    }
+    else {
+        int globalc = global_rules.capacity_for_item(it);
+        int charc = character_rules.capacity_for_item(it);
+        if (globalc < 0 || charc < 0) {
+            return -1;
+        }
+        else {
+            return globalc + charc;
+        }
+    }
+}
+
+int rule_list::capacity_for_item(const item* it)
+{
+    // TODO first check only the rules that have infinite capacity to reduce
+    // the number of times we have to check the entire player inventory
+
+    int capacity = 0;
+    for (rule elem : *this) {
+        if (elem.sRule.empty() || !elem.bActive) {
+            continue;
+        }
+        if ((wildcard_match(it->tname(1, false), elem.sRule) ||
+            check_special_rule(it->made_of(), elem.sRule))
+            ^ elem.bExclude) {
+            // If there's a matching rule with infinite capacity,
+            // there's infinite space for the item
+            if (elem.iMaxHeld == 0) {
+                return -1;
+            }
+            // otherwise check the number of matching items in the player's inventory
+            int numHeld = 0;
+            get_player_character().visit_items([&](const item* invItem, item*) {
+                if ((wildcard_match(invItem->tname(1, false), elem.sRule) ||
+                    check_special_rule(invItem->made_of(), elem.sRule))
+                    ^ elem.bExclude) {
+                    numHeld += invItem->count();
+                }
+                return VisitResponse::NEXT;
+                });
+            if (numHeld < elem.iMaxHeld) {
+                capacity += elem.iMaxHeld - numHeld;
+            }
+        }
+    }
+    return capacity;
+}
+
 void rule_list::refresh_map_items( cache &map_items ) const
 {
     for( const rule &elem : *this ) {
@@ -903,7 +952,7 @@ void rule_list::refresh_map_items( cache &map_items ) const
                     continue;
                 }
 
-                map_items[ cur_item ] = rule_state::WHITELISTED;
+                map_items[cur_item] = rule_state::WHITELISTED;
                 map_items.temp_items[ cur_item ] = e;
             }
         } else {
@@ -1001,6 +1050,7 @@ void rule::serialize( JsonOut &jsout ) const
     jsout.member( "rule", sRule );
     jsout.member( "active", bActive );
     jsout.member( "exclude", bExclude );
+    jsout.member("max", iMaxHeld);
     jsout.end_object();
 }
 
@@ -1018,6 +1068,12 @@ void rule::deserialize( const JsonObject &jo )
     sRule = jo.get_string( "rule" );
     bActive = jo.get_bool( "active" );
     bExclude = jo.get_bool( "exclude" );
+    if (jo.has_int("max")) {
+        iMaxHeld = jo.get_int("max");
+    }
+    else {
+        iMaxHeld = 0;
+    }
 }
 
 void rule_list::deserialize( const JsonArray &ja )

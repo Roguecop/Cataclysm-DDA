@@ -38,6 +38,7 @@ class cache : public std::unordered_map<std::string, rule_state>
 
         /// Temporary data used while filling the cache.
         std::unordered_map<std::string, const itype *> temp_items;
+
 };
 
 /**
@@ -50,10 +51,11 @@ class rule
         std::string sRule;
         bool bActive = false;
         bool bExclude = false;
-        int maxHeld = 0;
+        int iMaxHeld = 0;
+
         rule() = default;
 
-        rule( const std::string &r, const bool a, const bool e ) : sRule( r ), bActive( a ), bExclude( e ) {
+        rule( const std::string &r, const bool a, const bool e, const int m ) : sRule( r ), bActive( a ), bExclude( e ), iMaxHeld(m) {
         }
 
         void serialize( JsonOut &jsout ) const;
@@ -75,6 +77,8 @@ class rule_list : public std::vector<rule>
 
         void create_rule( cache &map_items, const std::string &to_match );
         void create_rule( cache &map_items, const item &it );
+
+        int capacity_for_item(const item* it);
 };
 
 class user_interface
@@ -102,7 +106,6 @@ class base_settings
 {
     protected:
         mutable cache map_items;
-
         void invalidate();
 
     private:
@@ -113,6 +116,8 @@ class base_settings
     public:
         virtual ~base_settings() = default;
         rule_state check_item( const std::string &sItemName ) const;
+
+
 };
 
 class player_settings : public base_settings
@@ -142,6 +147,9 @@ class player_settings : public base_settings
         void load_global();
 
         bool empty() const;
+
+        int capacity_for_item(const item* it);
+
 };
 
 class npc_settings : public base_settings
