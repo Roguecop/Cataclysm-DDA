@@ -70,9 +70,6 @@ static const quality_id qual_SHEAR( "SHEAR" );
 
 static const skill_id skill_survival( "survival" );
 
-namespace
-{
-
 item_location tack_loc()
 {
     auto filter = []( const item & it ) {
@@ -82,7 +79,7 @@ item_location tack_loc()
     return game_menus::inv::titled_filter_menu( filter, get_avatar(), _( "Tack" ) );
 }
 
-void attach_saddle_to( monster &z )
+void monexamine::attach_saddle_to( monster &z )
 {
     if( z.has_effect( effect_monster_saddled ) ) {
         return;
@@ -97,7 +94,7 @@ void attach_saddle_to( monster &z )
     loc.remove_item();
 }
 
-void bandage_animal( monster &z )
+void monexamine::bandage_animal( monster &z )
 {
     if( !z.has_effect( effect_bleed ) ) {
         return;
@@ -113,7 +110,7 @@ void bandage_animal( monster &z )
                  wieldede_item.get_item()->display_name() );
         return;
     }
-    const heal_actor *actor = dynamic_cast<const heal_actor *>( usage->get_actor_ptr() );
+    const auto *actor = dynamic_cast<const heal_actor *>( usage->get_actor_ptr() );
     if( actor->bleed ) {
         z.remove_effect( effect_bleed );
         wieldede_item.remove_item();
@@ -125,7 +122,7 @@ void bandage_animal( monster &z )
     }
 }
 
-void remove_saddle_from( monster &z )
+void monexamine::remove_saddle_from( monster &z )
 {
     if( !z.has_effect( effect_monster_saddled ) ) {
         return;
@@ -135,12 +132,12 @@ void remove_saddle_from( monster &z )
     z.tack_item.reset();
 }
 
-void mount_pet( monster &z )
+void monexamine::mount_pet( monster &z )
 {
     get_player_character().mount_creature( z );
 }
 
-void swap( monster &z )
+void monexamine::swap( monster &z )
 {
     std::string pet_name = z.get_name();
     Character &player_character = get_player_character();
@@ -165,7 +162,7 @@ void swap( monster &z )
     }
 }
 
-void push( monster &z )
+void monexamine::push( monster &z )
 {
     std::string pet_name = z.get_name();
     Character &player_character = get_player_character();
@@ -186,7 +183,7 @@ void push( monster &z )
     }
 }
 
-void rename_pet( monster &z )
+void monexamine::rename_pet( monster &z )
 {
     std::string unique_name = string_input_popup()
                               .title( _( "Enter new pet name:" ) )
@@ -197,7 +194,7 @@ void rename_pet( monster &z )
     }
 }
 
-void attach_bag_to( monster &z )
+void monexamine::attach_bag_to( monster &z )
 {
     std::string pet_name = z.get_name();
 
@@ -235,7 +232,7 @@ void attach_bag_to( monster &z )
     player_character.mod_moves( -to_moves<int>( 2_seconds ) );
 }
 
-void dump_items( monster &z )
+void monexamine::dump_items( monster &z )
 {
     std::string pet_name = z.get_name();
     Character &player_character = get_player_character();
@@ -251,7 +248,7 @@ void dump_items( monster &z )
     player_character.mod_moves( -to_moves<int>( 2_seconds ) );
 }
 
-void remove_bag_from( monster &z )
+void monexamine::remove_bag_from( monster &z )
 {
     std::string pet_name = z.get_name();
     if( z.storage_item ) {
@@ -269,7 +266,7 @@ void remove_bag_from( monster &z )
     z.remove_effect( effect_has_bag );
 }
 
-bool give_items_to( monster &z )
+bool monexamine::give_items_to( monster &z )
 {
     std::string pet_name = z.get_name();
     if( !z.storage_item ) {
@@ -336,7 +333,7 @@ item_location pet_armor_loc( monster &z )
     return game_menus::inv::titled_filter_menu( filter, get_avatar(), _( "Pet armor" ) );
 }
 
-bool add_armor( monster &z )
+bool monexamine::add_armor( monster &z )
 {
     std::string pet_name = z.get_name();
     item_location loc = pet_armor_loc( z );
@@ -365,13 +362,13 @@ bool add_armor( monster &z )
     return true;
 }
 
-void remove_harness( monster &z )
+void monexamine::remove_harness( monster &z )
 {
     z.remove_effect( effect_harnessed );
     add_msg( m_info, _( "You unhitch %s from the vehicle." ), z.get_name() );
 }
 
-void remove_armor( monster &z )
+void monexamine::remove_armor( monster &z )
 {
     std::string pet_name = z.get_name();
     if( z.armor_item ) {
@@ -388,7 +385,7 @@ void remove_armor( monster &z )
     z.remove_effect( effect_monster_armor );
 }
 
-void play_with( monster &z )
+void monexamine::play_with( monster &z )
 {
     std::string pet_name = z.get_name();
     Character &player_character = get_player_character();
@@ -396,7 +393,7 @@ void play_with( monster &z )
     player_character.assign_activity( play_with_pet_activity_actor( pet_name, petstr ) );
 }
 
-void cull( monster &z )
+void monexamine::cull( monster &z )
 {
     Character &player_character = get_player_character();
     if( !player_character.has_quality( qual_CUT ) ) {
@@ -406,7 +403,7 @@ void cull( monster &z )
     z.apply_damage( nullptr, bodypart_id( "torso" ), z.get_hp() );
 }
 
-void add_leash( monster &z )
+void monexamine::add_leash( monster &z )
 {
     if( z.has_effect( effect_leashed ) ) {
         return;
@@ -437,7 +434,7 @@ void add_leash( monster &z )
     add_msg( _( "You add a leash to your %s." ), z.get_name() );
 }
 
-void remove_leash( monster &z )
+void monexamine::remove_leash( monster &z )
 {
     if( !z.has_effect( effect_leashed ) ) {
         return;
@@ -451,7 +448,7 @@ void remove_leash( monster &z )
     add_msg( _( "You remove the leash from your %s." ), z.get_name() );
 }
 
-void tie_pet( monster &z )
+void monexamine::tie_pet( monster &z )
 {
     if( z.has_effect( effect_tied ) ) {
         return;
@@ -460,7 +457,7 @@ void tie_pet( monster &z )
     add_msg( _( "You tie your %s." ), z.get_name() );
 }
 
-void untie_pet( monster &z )
+void monexamine::untie_pet( monster &z )
 {
     if( !z.has_effect( effect_tied ) ) {
         return;
@@ -473,7 +470,7 @@ void untie_pet( monster &z )
     add_msg( _( "You untie your %s." ), z.get_name() );
 }
 
-void start_leading( monster &z )
+void monexamine::start_leading( monster &z )
 {
     if( z.has_effect( effect_led_by_leash ) ) {
         return;
@@ -486,7 +483,7 @@ void start_leading( monster &z )
     add_msg( _( "You take hold of the %s's leash to make it follow you." ), z.get_name() );
 }
 
-void stop_leading( monster &z )
+void monexamine::stop_leading( monster &z )
 {
     if( !z.has_effect( effect_led_by_leash ) ) {
         return;
@@ -501,7 +498,7 @@ void stop_leading( monster &z )
  * Milked item uses starting_ammo, where ammo type is the milked item
  * and amount the times per day you can milk the monster.
  */
-void milk_source( monster &source_mon )
+void monexamine::milk_source( monster &source_mon )
 {
 
     itype_id milked_item = source_mon.type->starting_ammo.begin()->first;
@@ -534,7 +531,7 @@ void milk_source( monster &source_mon )
     }
 }
 
-void shear_animal( monster &z )
+void monexamine::shear_animal( monster &z )
 {
     Character &guy = get_player_character();
     if( !guy.has_quality( qual_SHEAR ) ) {
@@ -552,13 +549,13 @@ void shear_animal( monster &z )
     guy.assign_activity( shearing_activity_actor( z.pos(), !monster_tied ) );
 }
 
-void remove_battery( monster &z )
+void monexamine::remove_battery( monster &z )
 {
     get_map().add_item_or_charges( get_player_character().pos_bub(), *z.battery_item );
     z.battery_item.reset();
 }
 
-void insert_battery( monster &z )
+void monexamine::insert_battery( monster &z )
 {
     if( z.battery_item ) {
         // already has a battery, shouldn't be called with one, but just in case.
@@ -588,8 +585,6 @@ void insert_battery( monster &z )
     z.battery_item = cata::make_value<item>( *bat_item );
     player_character.i_rem( bat_item );
 }
-
-} // namespace
 
 bool Character::can_mount( const monster &critter ) const
 {
